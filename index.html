@@ -1,0 +1,2179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ArmCare采摘机械臂远程运维管理平台</title>
+    <script src="https://modao.cc/agent-py/static/source/js/tailwindcss.js">
+    </script>
+    <script src="https://modao.cc/agent-py/static/source/js/iconify-icon.min.js">
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #F5F7FA;
+            color: #1E293B;
+            overflow: hidden;
+        }
+
+        .sidebar-item-active {
+            background-color: #334155;
+            border-left: 4px solid #4F6CF7;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .card-shadow {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        }
+
+        .page-content {
+            display: none;
+        }
+        .page-content.active {
+            display: block;
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 140px;
+        }
+
+        /* 环形仪表盘 */
+        .gauge-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .gauge-item {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+            text-align: center;
+            border: 1px solid #EEF2F6;
+        }
+        .gauge-item .gauge-title {
+            font-size: 13px;
+            color: #94A3B8;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        .gauge-item .gauge-ring {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 6px;
+            border-radius: 50%;
+            background: conic-gradient(#4F6CF7 calc(var(--percent) * 1%), #E8EDF2 calc(var(--percent) * 1%));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .gauge-item .gauge-ring .inner {
+            width: 62px;
+            height: 62px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: 700;
+            color: #0F172A;
+        }
+        .gauge-item .gauge-value {
+            font-size: 15px;
+            font-weight: 600;
+            color: #0F172A;
+        }
+        .gauge-item .gauge-sub {
+            font-size: 12px;
+            color: #94A3B8;
+        }
+
+        /* 小车分组 - 始终上下布局 */
+        .car-group {
+            margin-bottom: 28px;
+        }
+        .car-group .car-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0 12px;
+            font-weight: 600;
+            font-size: 18px;
+            color: #0F172A;
+            border-bottom: 2px solid #E8EDF2;
+            margin-bottom: 16px;
+        }
+        .car-group .car-header .summary {
+            font-size: 14px;
+            font-weight: 400;
+            color: #94A3B8;
+        }
+
+        /* 小车内容：始终上下排列 */
+        .car-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* 图表区域：温度/角度左右并排 */
+        .charts-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            width: 100%;
+        }
+        .charts-row .chart-box {
+            flex: 1 1 calc(50% - 8px);
+            min-width: 200px;
+            background: white;
+            border-radius: 12px;
+            padding: 14px 16px;
+            border: 1px solid #EEF2F6;
+        }
+        .charts-row .chart-box .chart-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #0F172A;
+            margin-bottom: 4px;
+        }
+        .charts-row .chart-box .chart-container {
+            height: 130px;
+        }
+        @media (max-width: 768px) {
+            .charts-row .chart-box {
+                flex: 1 1 100%;
+            }
+        }
+
+        /* 臂卡片网格 - 4列宽屏自适应 */
+        .arms-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            width: 100%;
+        }
+        @media (max-width: 1200px) {
+            .arms-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        @media (max-width: 768px) {
+            .gauge-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            .arms-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        @media (max-width: 480px) {
+            .gauge-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .arm-card {
+            background: white;
+            border-radius: 12px;
+            padding: 12px 14px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+            border: 1px solid #EEF2F6;
+            transition: border-color 0.2s;
+            cursor: pointer;
+        }
+        .arm-card:hover {
+            border-color: #4F6CF7;
+        }
+        .arm-card .top-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .arm-card .name {
+            font-weight: 600;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .arm-card .name iconify-icon {
+            font-size: 16px;
+        }
+        .arm-card .status-badge {
+            font-size: 9px;
+            padding: 1px 8px;
+            border-radius: 999px;
+            font-weight: 600;
+        }
+        .arm-card .status-badge.online {
+            background: #DCFCE7;
+            color: #15803D;
+        }
+        .arm-card .status-badge.warning {
+            background: #FEF3C7;
+            color: #B45309;
+        }
+        .arm-card .status-badge.offline {
+            background: #FEE2E2;
+            color: #B91C1C;
+        }
+
+        .joint-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2px 6px;
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px solid #F1F5F9;
+        }
+        .joint-item {
+            font-size: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #F8FAFC;
+            padding: 1px 6px;
+            border-radius: 3px;
+        }
+        .joint-item .label {
+            color: #64748B;
+            font-weight: 500;
+        }
+        .joint-item .value {
+            font-weight: 600;
+            color: #0F172A;
+            margin-left: 2px;
+        }
+        .joint-item .value.temp-high {
+            color: #EF4444;
+        }
+        .joint-item .value.temp-warn {
+            color: #F59E0B;
+        }
+
+        .end-pos {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 10px;
+            margin-top: 4px;
+            font-size: 10px;
+            color: #64748B;
+        }
+        .end-pos span {
+            font-weight: 500;
+            color: #0F172A;
+        }
+        .end-pos .gripper {
+            font-weight: 600;
+            padding: 0 6px;
+            border-radius: 8px;
+            background: #E8EDF2;
+            font-size: 9px;
+        }
+        .end-pos .gripper.open {
+            background: #DCFCE7;
+            color: #15803D;
+        }
+        .end-pos .gripper.closed {
+            background: #FEE2E2;
+            color: #B91C1C;
+        }
+        .end-pos .gripper.half {
+            background: #FEF3C7;
+            color: #B45309;
+        }
+
+        /* 告警、工单等样式保持不变 */
+        .alarm-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #F1F5F9;
+            gap: 12px;
+            cursor: pointer;
+        }
+        .alarm-item:last-child {
+            border-bottom: none;
+        }
+        .alarm-item .level-tag {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 6px;
+            flex-shrink: 0;
+        }
+        .alarm-item .level-tag.critical {
+            background: #FEE2E2;
+            color: #B91C1C;
+        }
+        .alarm-item .level-tag.warning {
+            background: #FEF3C7;
+            color: #B45309;
+        }
+        .alarm-item .level-tag.info {
+            background: #DBEAFE;
+            color: #1D4ED8;
+        }
+        .alarm-item .content {
+            flex: 1;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .alarm-item .content .device {
+            font-weight: 400;
+            color: #64748B;
+            font-size: 12px;
+        }
+        .alarm-item .time {
+            font-size: 11px;
+            color: #94A3B8;
+            flex-shrink: 0;
+        }
+
+        .order-card {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+            border: 1px solid #EEF2F6;
+            margin-bottom: 12px;
+        }
+        .order-card .top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .order-card .title {
+            font-weight: 600;
+            font-size: 15px;
+            flex: 1;
+            margin-right: 8px;
+        }
+        .order-card .priority {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 10px;
+            border-radius: 999px;
+            flex-shrink: 0;
+        }
+        .order-card .priority.high {
+            background: #FEE2E2;
+            color: #B91C1C;
+        }
+        .order-card .priority.medium {
+            background: #FEF3C7;
+            color: #B45309;
+        }
+        .order-card .priority.low {
+            background: #DBEAFE;
+            color: #1D4ED8;
+        }
+        .order-card .meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 16px;
+            margin-top: 8px;
+            font-size: 12px;
+            color: #64748B;
+        }
+        .order-card .meta span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .order-card .status {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #F1F5F9;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        /* ===== 设备管理卡片样式 ===== */
+        .device-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+        @media (max-width: 1200px) {
+            .device-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        @media (max-width: 768px) {
+            .device-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .device-card {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+            border: 1px solid #EEF2F6;
+            transition: border-color 0.2s;
+        }
+        .device-card:hover {
+            border-color: #4F6CF7;
+        }
+        .device-card .device-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .device-card .device-header .name {
+            font-weight: 600;
+            font-size: 15px;
+        }
+        .device-card .device-header .status-badge {
+            font-size: 10px;
+            padding: 2px 10px;
+            border-radius: 999px;
+            font-weight: 600;
+        }
+        .device-card .device-header .status-badge.online {
+            background: #DCFCE7;
+            color: #15803D;
+        }
+        .device-card .device-header .status-badge.warning {
+            background: #FEF3C7;
+            color: #B45309;
+        }
+        .device-card .device-header .status-badge.offline {
+            background: #FEE2E2;
+            color: #B91C1C;
+        }
+
+        .device-card .device-detail {
+            font-size: 13px;
+            color: #64748B;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px 12px;
+            margin-top: 6px;
+        }
+        .device-card .device-detail .label {
+            color: #94A3B8;
+        }
+        .device-card .device-detail .value {
+            color: #0F172A;
+            font-weight: 500;
+            text-align: right;
+        }
+        .device-card .device-actions {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid #F1F5F9;
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+        .device-card .device-actions button {
+            background: none;
+            border: none;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .device-card .device-actions .edit {
+            color: #4F6CF7;
+        }
+        .device-card .device-actions .edit:hover {
+            color: #2563EB;
+        }
+        .device-card .device-actions .delete {
+            color: #EF4444;
+        }
+        .device-card .device-actions .delete:hover {
+            color: #DC2626;
+        }
+
+        .history-table-wrap {
+            overflow-x: auto;
+        }
+        .history-table-wrap table {
+            width: 100%;
+            min-width: 900px;
+            font-size: 12px;
+            border-collapse: collapse;
+        }
+        .history-table-wrap th,
+        .history-table-wrap td {
+            padding: 8px 10px;
+            text-align: left;
+            border-bottom: 1px solid #F1F5F9;
+            white-space: nowrap;
+        }
+        .history-table-wrap th {
+            font-weight: 600;
+            color: #64748B;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+
+        /* 智能助手浮层 - 全局可见 */
+        .ai-assistant-fab {
+            position: fixed;
+            right: 24px;
+            bottom: 24px;
+            z-index: 90;
+            width: 56px;
+            height: 56px;
+            border: none;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #1890FF 0%, #4F6CF7 100%);
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 10px 24px rgba(24, 144, 255, 0.28);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .ai-assistant-fab:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 14px 30px rgba(24, 144, 255, 0.34);
+        }
+
+        .ai-assistant-window {
+            position: fixed;
+            right: 24px;
+            bottom: 96px;
+            z-index: 95;
+            width: 420px;
+            height: 560px;
+            display: flex;
+            flex-direction: column;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 18px 48px rgba(15, 23, 42, 0.18);
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(28px) scale(0.96);
+            transition: opacity 0.28s ease, transform 0.28s ease;
+            overflow: hidden;
+            resize: both;
+            min-width: 320px;
+            min-height: 400px;
+            max-width: 90vw;
+            max-height: 90vh;
+        }
+        .ai-assistant-window.is-open {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0) scale(1);
+        }
+        .ai-assistant-window .header {
+            height: 48px;
+            padding: 0 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+            background: #1E3A5F;
+            color: white;
+            cursor: grab;
+            user-select: none;
+        }
+        .ai-assistant-window .header:active {
+            cursor: grabbing;
+        }
+        .ai-assistant-window .header .drag-handle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+        }
+        .ai-assistant-window .header .drag-handle iconify-icon {
+            font-size: 20px;
+        }
+        .ai-assistant-window .header .drag-handle span {
+            font-weight: 600;
+            font-size: 15px;
+        }
+        .ai-assistant-window .header .controls {
+            display: flex;
+            gap: 4px;
+        }
+        .ai-assistant-window .header .controls button {
+            width: 28px;
+            height: 28px;
+            border: none;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s;
+        }
+        .ai-assistant-window .header .controls button:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+        .ai-assistant-window .header .controls button:active {
+            background: rgba(255, 255, 255, 0.25);
+        }
+        .ai-assistant-window.minimized {
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.8);
+            width: 0 !important;
+            height: 0 !important;
+            min-width: 0;
+            min-height: 0;
+            overflow: hidden;
+            border: none;
+            box-shadow: none;
+        }
+        .ai-assistant-window.maximized {
+            width: calc(100vw - 48px) !important;
+            height: calc(100vh - 100px) !important;
+            right: 24px !important;
+            bottom: 24px !important;
+            resize: none;
+        }
+        .ai-assistant-messages {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            background: #F5F7FA;
+        }
+        .ai-message-row {
+            display: flex;
+            margin-bottom: 16px;
+        }
+        .ai-message-row.user {
+            justify-content: flex-end;
+        }
+        .ai-message-row.assistant {
+            justify-content: flex-start;
+        }
+        .ai-message-bubble {
+            max-width: 80%;
+            padding: 10px 14px;
+            border-radius: 16px;
+            font-size: 13px;
+            line-height: 1.6;
+            word-break: break-word;
+        }
+        .ai-message-row.user .ai-message-bubble {
+            background: #1890FF;
+            color: white;
+        }
+        .ai-message-row.assistant .ai-message-bubble {
+            background: white;
+            color: #333;
+            border: 1px solid #E8E8E8;
+        }
+        .ai-thinking {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .ai-spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid #D6E4FF;
+            border-top-color: #1890FF;
+            border-radius: 50%;
+            animation: aiSpin 0.8s linear infinite;
+        }
+        @keyframes aiSpin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        .ai-assistant-inputbar {
+            padding: 12px;
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+            background: white;
+            border-top: 1px solid #E8E8E8;
+        }
+        .ai-assistant-inputbar input {
+            flex: 1;
+            min-width: 0;
+            height: 40px;
+            padding: 0 12px;
+            border: 1px solid #D9E2EC;
+            border-radius: 10px;
+            font-size: 13px;
+            outline: none;
+        }
+        .ai-assistant-inputbar input:focus {
+            border-color: #1890FF;
+            box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.12);
+        }
+        .ai-assistant-send {
+            height: 40px;
+            padding: 0 16px;
+            border: none;
+            border-radius: 10px;
+            background: #1890FF;
+            color: white;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .ai-assistant-send:hover {
+            background: #0F7DE8;
+        }
+
+        /* 模态框和抽屉 */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.45);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+        .modal-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-overlay .modal {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 560px;
+            width: 92%;
+            max-height: 85vh;
+            overflow-y: auto;
+            transform: scale(0.95);
+            transition: transform 0.25s ease;
+        }
+        .modal-overlay.open .modal {
+            transform: scale(1);
+        }
+        .modal .modal-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal .modal-title .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #94A3B8;
+        }
+        .modal .field {
+            margin-bottom: 14px;
+        }
+        .modal .field label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #64748B;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-bottom: 3px;
+        }
+        .modal .field input,
+        .modal .field select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            font-size: 14px;
+            background: #F8FAFC;
+            outline: none;
+        }
+        .modal .field input:focus,
+        .modal .field select:focus {
+            border-color: #4F6CF7;
+            box-shadow: 0 0 0 3px rgba(79, 108, 247, 0.1);
+        }
+        .modal .actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        .modal .actions button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .modal .actions .cancel {
+            background: #F1F5F9;
+            color: #64748B;
+        }
+        .modal .actions .confirm {
+            background: #4F6CF7;
+            color: white;
+        }
+
+        .drawer-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.4);
+            z-index: 75;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .drawer-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .drawer {
+            position: fixed;
+            right: 0;
+            top: 0;
+            height: 100%;
+            width: 480px;
+            background: white;
+            z-index: 76;
+            box-shadow: -4px 0 20px rgba(0, 0, 0, 0.1);
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            padding: 24px;
+            overflow-y: auto;
+        }
+        .drawer.open {
+            transform: translateX(0);
+        }
+        .drawer .drawer-close {
+            float: right;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        @media (max-width: 768px) {
+            .metric-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        @media (max-width: 480px) {
+            .metric-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .order-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+        @media (max-width: 1100px) {
+            .order-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        @media (max-width: 768px) {
+            .order-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body class="h-screen flex">
+    <!-- 侧边栏 -->
+    <aside class="w-[240px] bg-[#1E293B] flex flex-col h-full shrink-0">
+        <div class="p-6 flex items-center space-x-3">
+            <div class="w-10 h-10 bg-[#4F6CF7] rounded-lg flex items-center justify-center">
+                <iconify-icon class="text-white text-2xl" icon="mdi:robot-arm"></iconify-icon>
+            </div>
+            <span class="text-white text-xl font-bold tracking-tight">ArmCare</span>
+        </div>
+        <nav class="flex-1 mt-4">
+            <ul class="space-y-1">
+                <li><a class="sidebar-item flex items-center px-6 py-3.5 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors sidebar-item-active" href="javascript:void(0)" onclick="switchPage('dashboard', this)"><iconify-icon class="text-xl mr-3" icon="lucide:layout-dashboard"></iconify-icon><span class="text-sm font-medium">实时监控看板</span></a></li>
+                <li><a class="sidebar-item flex items-center px-6 py-3.5 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors" href="javascript:void(0)" onclick="switchPage('alarms', this)"><iconify-icon class="text-xl mr-3" icon="lucide:alert-triangle"></iconify-icon><span class="text-sm font-medium">异常告警中心</span></a></li>
+                <li><a class="sidebar-item flex items-center px-6 py-3.5 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors" href="javascript:void(0)" onclick="switchPage('history', this)"><iconify-icon class="text-xl mr-3" icon="lucide:line-chart"></iconify-icon><span class="text-sm font-medium">历史数据查询</span></a></li>
+                <li><a class="sidebar-item flex items-center px-6 py-3.5 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors" href="javascript:void(0)" onclick="switchPage('orders', this)"><iconify-icon class="text-xl mr-3" icon="lucide:clipboard-list"></iconify-icon><span class="text-sm font-medium">远程运维工单</span></a></li>
+            </ul>
+            <div class="mt-8 pt-8 border-t border-slate-700">
+                <a class="sidebar-item flex items-center px-6 py-3.5 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors" href="javascript:void(0)" onclick="switchPage('devices', this)"><iconify-icon class="text-xl mr-3" icon="lucide:settings"></iconify-icon><span class="text-sm font-medium">设备管理</span></a>
+            </div>
+        </nav>
+        <div class="p-6">
+            <div class="bg-slate-800 rounded-xl p-4">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center text-xs text-white">JD</div>
+                    <div>
+                        <p class="text-white text-xs font-semibold">管理员 张三</p>
+                        <p class="text-slate-400 text-[10px]">系统维护专家</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- 主内容区 -->
+    <main class="flex-1 flex flex-col overflow-hidden">
+        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
+            <div class="flex items-center space-x-4">
+                <h2 class="text-lg font-semibold text-slate-800" id="page-title">实时监控看板</h2>
+                <div class="h-4 w-[1px] bg-slate-300 mx-2"></div>
+                <div class="text-slate-500 font-mono text-sm" id="current-time">2026-05-18 14:59:08</div>
+            </div>
+            <div class="flex items-center space-x-6">
+                <div class="relative">
+                    <iconify-icon class="text-xl text-slate-400 cursor-pointer hover:text-slate-600" icon="lucide:bell"></iconify-icon>
+                    <span class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] flex items-center justify-center rounded-full" id="alarm-badge-top">3</span>
+                </div>
+                <div class="flex items-center space-x-3 cursor-pointer group">
+                    <div class="w-9 h-9 bg-slate-200 rounded-full flex items-center justify-center text-slate-500 group-hover:bg-slate-300 transition-colors">
+                        <iconify-icon class="text-xl" icon="lucide:user"></iconify-icon>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-y-auto custom-scrollbar p-8">
+            <!-- ===== 看板 ===== -->
+            <section class="page-content active" id="page-dashboard">
+                <div class="metric-grid">
+                    <div class="bg-white p-6 rounded-[12px] card-shadow flex items-center space-x-4">
+                        <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center"><iconify-icon class="text-2xl text-[#4F6CF7]" icon="lucide:cpu"></iconify-icon></div>
+                        <div><p class="text-slate-500 text-sm">设备总数</p><p class="text-2xl font-bold text-slate-800" id="total-devices">8 <span class="text-sm font-normal text-slate-400 ml-1">台</span></p></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-[12px] card-shadow flex items-center space-x-4">
+                        <div class="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center"><iconify-icon class="text-2xl text-[#22C55E]" icon="lucide:signal"></iconify-icon></div>
+                        <div><p class="text-slate-500 text-sm">在线率</p><p class="text-2xl font-bold text-slate-800" id="online-rate">87.5%</p></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-[12px] card-shadow flex items-center space-x-4">
+                        <div class="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center"><iconify-icon class="text-2xl text-[#F59E0B]" icon="lucide:alert-circle"></iconify-icon></div>
+                        <div><p class="text-slate-500 text-sm">今日告警</p><p class="text-2xl font-bold text-slate-800" id="today-alarms">3 <span class="text-sm font-normal text-slate-400 ml-1">条</span></p></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-[12px] card-shadow flex items-center space-x-4">
+                        <div class="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center"><iconify-icon class="text-2xl text-[#EF4444]" icon="lucide:thermometer"></iconify-icon></div>
+                        <div><p class="text-slate-500 text-sm">平均温度</p><p class="text-2xl font-bold text-slate-800" id="avg-temp">46.2°C</p></div>
+                    </div>
+                </div>
+
+                <div class="gauge-grid">
+                    <div class="gauge-item"><div class="gauge-title">1号车平均温度</div><div class="gauge-ring" style="--percent:65"><div class="inner" id="gauge-car1-temp">45.2°</div></div><div class="gauge-value">45.2°C</div><div class="gauge-sub">正常</div></div>
+                    <div class="gauge-item"><div class="gauge-title">2号车平均温度</div><div class="gauge-ring" style="--percent:72"><div class="inner" id="gauge-car2-temp">48.7°</div></div><div class="gauge-value">48.7°C</div><div class="gauge-sub">正常</div></div>
+                    <div class="gauge-item"><div class="gauge-title">整体在线率</div><div class="gauge-ring" style="--percent:88"><div class="inner" id="gauge-online-rate">88%</div></div><div class="gauge-value">88%</div><div class="gauge-sub">8台在线</div></div>
+                    <div class="gauge-item"><div class="gauge-title">未处理告警</div><div class="gauge-ring" style="--percent:20"><div class="inner" id="gauge-unconfirmed">2</div></div><div class="gauge-value">2 条</div><div class="gauge-sub">需关注</div></div>
+                </div>
+
+                <div id="device-list"></div>
+            </section>
+
+            <!-- ===== 告警中心 ===== -->
+            <section class="page-content" id="page-alarms">
+                <div class="bg-white p-6 rounded-[12px] card-shadow mb-8">
+                    <div class="grid grid-cols-5 gap-4">
+                        <div><label class="block text-xs font-medium text-slate-500 mb-1.5">告警级别</label><select class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"><option>全部级别</option><option>严重</option><option>警告</option><option>提示</option></select></div>
+                        <div><label class="block text-xs font-medium text-slate-500 mb-1.5">设备名称</label><select class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" id="alarm-device-filter"><option>全部设备</option></select></div>
+                        <div class="col-span-2"><label class="block text-xs font-medium text-slate-500 mb-1.5">时间范围</label><div class="flex items-center space-x-2"><input class="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" type="date"/><span class="text-slate-400">~</span><input class="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" type="date"/></div></div>
+                        <div class="flex items-end space-x-2"><button class="flex-1 bg-[#4F6CF7] text-white py-2 rounded-lg text-sm font-medium">搜索</button><button class="flex-1 bg-slate-100 text-slate-600 py-2 rounded-lg text-sm font-medium">重置</button></div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-[12px] card-shadow overflow-hidden">
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-50 border-b border-slate-100">
+                            <tr><th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">告警ID</th><th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">级别</th><th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">设备</th><th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">告警内容</th><th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">发生时间</th><th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">确认状态</th><th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">处理状态</th></tr>
+                        </thead>
+                        <tbody id="alarm-table-body" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+                <div class="mt-6 flex justify-between items-center">
+                    <button class="bg-[#4F6CF7] text-white px-6 py-2 rounded-lg text-sm font-medium" onclick="batchConfirm()">批量确认</button>
+                    <div class="flex items-center space-x-2"><button class="w-8 h-8 flex items-center justify-center border border-slate-200 rounded text-slate-400"><iconify-icon icon="lucide:chevron-left"></iconify-icon></button><button class="w-8 h-8 flex items-center justify-center bg-[#4F6CF7] text-white rounded text-sm">1</button><button class="w-8 h-8 flex items-center justify-center border border-slate-200 text-slate-600 rounded text-sm">2</button><button class="w-8 h-8 flex items-center justify-center border border-slate-200 rounded text-slate-400"><iconify-icon icon="lucide:chevron-right"></iconify-icon></button></div>
+                </div>
+            </section>
+
+            <!-- ===== 历史数据查询 ===== -->
+            <section class="page-content" id="page-history">
+                <div class="bg-white p-6 rounded-[12px] card-shadow mb-8">
+                    <div class="flex flex-wrap items-end gap-6">
+                        <div class="w-48"><label class="block text-xs font-medium text-slate-500 mb-1.5">选择设备</label><select class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" id="history-device-select"></select></div>
+                        <div><label class="block text-xs font-medium text-slate-500 mb-1.5">数据类型</label><div class="flex bg-slate-100 p-1 rounded-lg"><button class="px-4 py-1.5 text-sm font-medium rounded-md bg-white shadow-sm text-[#4F6CF7]" onclick="setHistoryType('angle')">关节角度</button><button class="px-4 py-1.5 text-sm font-medium rounded-md text-slate-500" onclick="setHistoryType('temp')">温度</button><button class="px-4 py-1.5 text-sm font-medium rounded-md text-slate-500" onclick="setHistoryType('pos')">末端位姿</button></div></div>
+                        <div class="flex items-center space-x-3"><div><label class="block text-xs font-medium text-slate-500 mb-1.5">开始时间</label><input class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" type="datetime-local"/></div><span class="mt-7 text-slate-400">至</span><div><label class="block text-xs font-medium text-slate-500 mb-1.5">结束时间</label><input class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" type="datetime-local"/></div></div>
+                        <div class="flex space-x-3"><button class="bg-[#4F6CF7] text-white px-6 py-2 rounded-lg text-sm font-medium" onclick="queryHistory()">查询</button><button class="bg-white border border-slate-200 text-slate-600 px-6 py-2 rounded-lg text-sm font-medium flex items-center"><iconify-icon class="mr-2" icon="lucide:download"></iconify-icon> 导出CSV</button></div>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-[12px] card-shadow mb-8">
+                    <h3 class="font-semibold text-slate-800 mb-6">历史趋势分析</h3>
+                    <div class="chart-container h-[300px]"><canvas id="historyChart"></canvas></div>
+                </div>
+                <div class="bg-white rounded-[12px] card-shadow overflow-hidden">
+                    <div class="max-h-[400px] overflow-y-auto custom-scrollbar">
+                        <div class="history-table-wrap">
+                            <table>
+                                <thead class="bg-slate-50 sticky top-0 border-b border-slate-100">
+                                    <tr><th>时间</th><th>J1(°)</th><th>J1(°C)</th><th>J2(°)</th><th>J2(°C)</th><th>J3(°)</th><th>J3(°C)</th><th>J4(°)</th><th>J4(°C)</th><th>J5(°)</th><th>J5(°C)</th><th>J6(°)</th><th>J6(°C)</th><th>X(mm)</th><th>Y(mm)</th><th>Z(mm)</th></tr>
+                                </thead>
+                                <tbody id="history-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== 远程运维工单 ===== -->
+            <section class="page-content" id="page-orders">
+                <div class="flex justify-between items-center mb-8">
+                    <div class="flex space-x-1 border-b border-slate-200"><button class="px-6 py-3 text-sm font-medium text-[#4F6CF7] border-b-2 border-[#4F6CF7]" onclick="filterOrders('all')">全部</button><button class="px-6 py-3 text-sm font-medium text-slate-500 hover:text-slate-700" onclick="filterOrders('pending')">待处理</button><button class="px-6 py-3 text-sm font-medium text-slate-500 hover:text-slate-700" onclick="filterOrders('processing')">处理中</button><button class="px-6 py-3 text-sm font-medium text-slate-500 hover:text-slate-700" onclick="filterOrders('done')">已完成</button></div>
+                    <button class="bg-[#4F6CF7] text-white px-6 py-2.5 rounded-lg text-sm font-medium flex items-center shadow-md" onclick="toggleModal('newOrderModal', true)"><iconify-icon class="mr-2" icon="lucide:plus"></iconify-icon> 新建工单</button>
+                </div>
+                <div class="order-grid" id="order-grid"></div>
+            </section>
+
+            <!-- ===== 设备管理 ===== -->
+            <section class="page-content" id="page-devices">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold text-slate-800">设备管理</h3>
+                    <button class="bg-[#4F6CF7] text-white px-6 py-2.5 rounded-lg text-sm font-medium flex items-center shadow-md" onclick="openAddDeviceModal()"><iconify-icon class="mr-2" icon="lucide:plus"></iconify-icon> 添加设备</button>
+                </div>
+                <div id="device-mgmt-list"></div>
+            </section>
+        </div>
+    </main>
+
+    <!-- ===== 智能运维助手浮层（全局可见） ===== -->
+    <button class="ai-assistant-fab" id="aiAssistantFab" aria-label="打开智能运维助手">💬</button>
+    <div class="ai-assistant-window" id="aiAssistantWindow">
+        <div class="header" id="assistantHeader">
+            <div class="drag-handle">
+                <iconify-icon icon="mdi:robot-outline"></iconify-icon>
+                <span>智能运维助手</span>
+            </div>
+            <div class="controls">
+                <button id="assistantMinimize" title="最小化">─</button>
+                <button id="assistantMaximize" title="最大化">☐</button>
+                <button id="assistantClose" title="关闭">✕</button>
+            </div>
+        </div>
+        <div class="ai-assistant-messages custom-scrollbar" id="aiAssistantMessages">
+            <div class="ai-message-row assistant"><div class="ai-message-bubble">您好，我可以根据告警内容检索历史处理方案。点击告警行会自动带入告警内容，也可以直接输入问题。</div></div>
+        </div>
+        <div class="ai-assistant-inputbar">
+            <input id="aiAssistantInput" type="text" placeholder="请输入告警内容，如：关节1温度超过65℃" autocomplete="off"/>
+            <button class="ai-assistant-send" id="aiAssistantSend">发送</button>
+        </div>
+    </div>
+
+    <!-- ===== 告警详情抽屉 ===== -->
+    <div class="drawer-overlay" id="drawerOverlay" onclick="toggleDrawer(false)"></div>
+    <div class="drawer" id="alarmDrawer">
+        <button class="drawer-close" onclick="toggleDrawer(false)">✕</button>
+        <h3 class="text-lg font-bold mt-2" id="drawer-title">告警详情</h3>
+        <div class="mt-4 space-y-3">
+            <div><span class="text-sm text-slate-500">级别：</span><span id="drawer-level" class="font-bold text-red-600">严重</span></div>
+            <div><span class="text-sm text-slate-500">设备：</span><span id="drawer-device" class="font-medium">机械臂_07</span></div>
+            <div><span class="text-sm text-slate-500">时间：</span><span id="drawer-time" class="font-mono">10:23:15</span></div>
+            <div><span class="text-sm text-slate-500">内容：</span><span id="drawer-content">关节2温度超限 (85°C)</span></div>
+            <div class="p-4 bg-slate-50 rounded-lg"><p class="text-sm text-slate-700">建议操作：</p><ul class="list-disc list-inside text-sm text-slate-600"><li>检查散热风扇</li><li>降低负载</li></ul></div>
+        </div>
+        <div class="flex gap-3 mt-6">
+            <button class="flex-1 bg-[#4F6CF7] text-white py-2 rounded-lg font-medium" onclick="confirmAlarm()">确认告警</button>
+            <button class="flex-1 bg-slate-100 text-slate-700 py-2 rounded-lg font-medium" onclick="createOrderFromDrawer()">创建工单</button>
+        </div>
+    </div>
+
+    <!-- ===== 新建/编辑设备通用模态框 ===== -->
+    <div class="modal-overlay" id="deviceModal">
+        <div class="modal">
+            <div class="modal-title">
+                <span id="deviceModalTitle">添加新设备</span>
+                <button class="close-btn" onclick="closeDeviceModal()">✕</button>
+            </div>
+            <div class="field">
+                <label>所属小车</label>
+                <select id="dev-car"><option>1号采摘车</option><option>2号采摘车</option></select>
+            </div>
+            <div class="field">
+                <label>机械臂名称</label>
+                <input id="dev-name" placeholder="例：臂5"/>
+            </div>
+            <div class="field">
+                <label>型号</label>
+                <input id="dev-model" placeholder="例：ARM-X-200"/>
+            </div>
+            <div class="field">
+                <label>序列号</label>
+                <input id="dev-sn" placeholder="例：SN-123456"/>
+            </div>
+            <div class="field">
+                <label>运行时长 (h)</label>
+                <input id="dev-runtime" placeholder="例：1200h"/>
+            </div>
+            <div class="field">
+                <label>累计采摘量</label>
+                <input id="dev-harvest" placeholder="例：5000"/>
+            </div>
+            <div class="field">
+                <label>上次维护日期</label>
+                <input id="dev-maintenance" type="date"/>
+            </div>
+            <div class="field">
+                <label>IP地址</label>
+                <input id="dev-ip" placeholder="例：192.168.1.101"/>
+            </div>
+            <div class="actions">
+                <button class="cancel" onclick="closeDeviceModal()">取消</button>
+                <button class="confirm" id="deviceModalConfirm" onclick="saveDevice()">保存设备</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 新建工单模态框 ===== -->
+    <div class="modal-overlay" id="newOrderModal">
+        <div class="modal">
+            <div class="modal-title"><span>新建运维工单</span><button class="close-btn" onclick="toggleModal('newOrderModal', false)">✕</button></div>
+            <div class="field"><label>工单标题</label><input id="order-title-input" placeholder="例：1号采摘车-臂1 温度异常"/></div>
+            <div class="field"><label>关联设备</label><select id="order-device-select"></select></div>
+            <div class="field"><label>优先级</label><select id="order-priority-select"><option>高</option><option>中</option><option>低</option></select></div>
+            <div class="field"><label>问题描述</label><textarea id="order-desc-input" rows="2" placeholder="详细描述..."></textarea></div>
+            <div class="actions"><button class="cancel" onclick="toggleModal('newOrderModal', false)">取消</button><button class="confirm" onclick="submitOrder()">提交工单</button></div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // 数据模型：2个小车，每个4条臂，每条臂6个关节，增加设备信息字段
+        // ============================================================
+        function randomJoint() {
+            return {
+                angle: +(Math.random() * 360).toFixed(1),
+                temp: +(35 + Math.random() * 30).toFixed(1)
+            };
+        }
+
+        function randomArm(id) {
+            const joints = [];
+            for (let i = 0; i < 6; i++) joints.push(randomJoint());
+            const gripperStates = ['张开', '闭合', '半开'];
+            const models = ['ARM-X-100', 'ARM-X-200', 'ARM-S-PRO', 'ARM-L-300'];
+            const model = models[Math.floor(Math.random() * models.length)];
+            return {
+                id: id,
+                status: Math.random() > 0.15 ? 'online' : (Math.random() > 0.5 ? 'warning' : 'offline'),
+                joints: joints,
+                endPos: {
+                    x: +(100 + Math.random() * 300).toFixed(1),
+                    y: +(100 + Math.random() * 300).toFixed(1),
+                    z: +(100 + Math.random() * 300).toFixed(1)
+                },
+                gripper: gripperStates[Math.floor(Math.random() * 3)],
+                // 设备管理字段
+                model: model,
+                serialNumber: 'SN-' + String(Math.floor(100000 + Math.random() * 900000)),
+                runtime: Math.floor(100 + Math.random() * 5000) + 'h',
+                harvestCount: Math.floor(100 + Math.random() * 10000),
+                lastMaintenance: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+                ip: '192.168.1.' + Math.floor(100 + Math.random() * 50)
+            };
+        }
+
+        let carData = [
+            { carName: '1号采摘车', arms: [] },
+            { carName: '2号采摘车', arms: [] }
+        ];
+
+        function initData() {
+            carData.forEach(car => {
+                car.arms = [];
+                for (let i = 1; i <= 4; i++) {
+                    car.arms.push(randomArm(`臂${i}`));
+                }
+            });
+        }
+        initData();
+
+        function getAllArms() {
+            const result = [];
+            carData.forEach(car => {
+                car.arms.forEach(arm => {
+                    result.push({ carName: car.carName, arm: arm });
+                });
+            });
+            return result;
+        }
+
+        function findArm(carName, armId) {
+            const car = carData.find(c => c.carName === carName);
+            if (!car) return null;
+            return car.arms.find(a => a.id === armId) || null;
+        }
+
+        // ===== 告警和工单数据 =====
+        let alarms = [];
+        let orders = [];
+
+        function generateSampleAlarms() {
+            const all = getAllArms();
+            if (all.length < 8) return;
+            const a1 = all[0],
+                a2 = all[1],
+                a3 = all[2],
+                a4 = all[3],
+                a5 = all[4],
+                a7 = all[6];
+            alarms = [
+                { id: 'AL-001', level: '严重', device: `${a1.carName}-${a1.arm.id}`, content: '关节2温度超限 (85°C)', time: '10:23:15', confirmed: false, status: '未处理' },
+                { id: 'AL-002', level: '警告', device: `${a2.carName}-${a2.arm.id}`, content: '关节5震动异常', time: '10:18:42', confirmed: true, status: '处理中' },
+                { id: 'AL-003', level: '提示', device: `${a1.carName}-${a1.arm.id}`, content: '定期校准已到期', time: '10:05:00', confirmed: true, status: '已解决' },
+                { id: 'AL-004', level: '警告', device: `${a3.carName}-${a3.arm.id}`, content: '通信延迟过高', time: '09:45:12', confirmed: false, status: '未处理' },
+                { id: 'AL-005', level: '严重', device: `${a4.carName}-${a4.arm.id}`, content: '急停按钮触发', time: '09:30:00', confirmed: true, status: '已解决' },
+                { id: 'AL-006', level: '提示', device: `${a5.carName}-${a5.arm.id}`, content: '润滑液液位低', time: '09:15:33', confirmed: false, status: '未处理' },
+                { id: 'AL-007', level: '警告', device: `${a7.carName}-${a7.arm.id}`, content: '负载超出额定范围', time: '08:50:21', confirmed: true, status: '处理中' }
+            ];
+        }
+        generateSampleAlarms();
+
+        function generateSampleOrders() {
+            const all = getAllArms();
+            if (all.length < 6) return;
+            const a1 = all[0],
+                a2 = all[1],
+                a3 = all[2],
+                a4 = all[3],
+                a5 = all[4];
+            orders = [
+                { id: 'WO-001', title: `${a1.carName}-${a1.arm.id} 关节温度异常检修`, device: `${a1.carName}-${a1.arm.id}`, priority: '高', status: '处理中', time: '10:30', user: '张三' },
+                { id: 'WO-002', title: `${a2.carName}-${a2.arm.id} 关节抖动校准`, device: `${a2.carName}-${a2.arm.id}`, priority: '中', status: '待处理', time: '11:15', user: '李四' },
+                { id: 'WO-003', title: '全车设备季度例行保养', device: '全部设备', priority: '低', status: '已完成', time: '09:00', user: '王五' },
+                { id: 'WO-004', title: `${a3.carName}-${a3.arm.id} 通信模块更换`, device: `${a3.carName}-${a3.arm.id}`, priority: '高', status: '待处理', time: '13:45', user: '赵六' },
+                { id: 'WO-005', title: `${a4.carName}-${a4.arm.id} 急停电路复位`, device: `${a4.carName}-${a4.arm.id}`, priority: '高', status: '已完成', time: '09:40', user: '张三' },
+                { id: 'WO-006', title: `${a5.carName}-${a5.arm.id} 润滑油添加`, device: `${a5.carName}-${a5.arm.id}`, priority: '低', status: '待处理', time: '14:20', user: '李四' }
+            ];
+        }
+        generateSampleOrders();
+
+        let currentFilter = 'all';
+        let currentOrderFilter = 'all';
+        let currentAlarm = null;
+
+        // ===== 设备编辑状态 =====
+        let editingDevice = null; // { carName, armId }
+
+        // ===== 工具函数 =====
+        function formatTime(d) {
+            const pad = n => String(n).padStart(2, '0');
+            return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+        }
+
+        // ===== 更新指标和仪表盘 =====
+        function updateMetrics() {
+            const all = getAllArms();
+            const total = all.length;
+            const online = all.filter(item => item.arm.status === 'online').length;
+            const rate = total ? Math.round((online / total) * 100) : 0;
+            const unconfirmed = alarms.filter(a => !a.confirmed).length;
+            let sumTemp = 0,
+                count = 0;
+            all.forEach(item => {
+                item.arm.joints.forEach(j => { sumTemp += j.temp;
+                    count++; });
+            });
+            const avg = count ? (sumTemp / count).toFixed(1) : 0;
+
+            document.getElementById('total-devices').textContent = total;
+            document.getElementById('online-rate').textContent = rate + '%';
+            document.getElementById('today-alarms').textContent = unconfirmed;
+            document.getElementById('avg-temp').textContent = avg + '°C';
+
+            const car1 = carData[0],
+                car2 = carData[1];
+            let s1 = 0,
+                c1 = 0,
+                s2 = 0,
+                c2 = 0;
+            car1.arms.forEach(arm => { arm.joints.forEach(j => { s1 += j.temp;
+                    c1++; }); });
+            car2.arms.forEach(arm => { arm.joints.forEach(j => { s2 += j.temp;
+                    c2++; }); });
+            const avg1 = c1 ? (s1 / c1).toFixed(1) : 0;
+            const avg2 = c2 ? (s2 / c2).toFixed(1) : 0;
+
+            document.getElementById('gauge-car1-temp').innerText = avg1 + '°';
+            document.getElementById('gauge-car2-temp').innerText = avg2 + '°';
+            document.getElementById('gauge-online-rate').innerText = rate + '%';
+            document.getElementById('gauge-unconfirmed').innerText = unconfirmed;
+
+            const rings = document.querySelectorAll('.gauge-ring');
+            if (rings.length >= 4) {
+                rings[0].style.setProperty('--percent', Math.min(100, (avg1 / 80) * 100));
+                rings[1].style.setProperty('--percent', Math.min(100, (avg2 / 80) * 100));
+                rings[2].style.setProperty('--percent', rate);
+                rings[3].style.setProperty('--percent', Math.min(100, unconfirmed * 25));
+            }
+            document.getElementById('alarm-badge-top').textContent = unconfirmed;
+        }
+
+        // ===== 绘制小车趋势图 =====
+        function drawCarCharts(carIndex) {
+            const tempCanvas = document.getElementById('carTempChart_' + carIndex);
+            const angleCanvas = document.getElementById('carAngleChart_' + carIndex);
+            if (!tempCanvas || !angleCanvas) return;
+
+            const car = carData[carIndex];
+            if (!car || car.arms.length === 0) return;
+
+            const points = 20;
+            const colors = ['#4F6CF7', '#22C55E', '#F59E0B', '#EF4444', '#A855F7', '#06B6D4'];
+            const labels = ['J1', 'J2', 'J3', 'J4', 'J5', 'J6'];
+
+            let baseTemp = [],
+                baseAngle = [];
+            for (let j = 0; j < 6; j++) {
+                let sumT = 0,
+                    sumA = 0,
+                    cnt = 0;
+                car.arms.forEach(arm => {
+                    sumT += arm.joints[j].temp;
+                    sumA += arm.joints[j].angle;
+                    cnt++;
+                });
+                baseTemp.push(sumT / cnt);
+                baseAngle.push(sumA / cnt);
+            }
+
+            function generateTrend(base, variance, minVal, maxVal) {
+                const data = [];
+                for (let i = 0; i < points; i++) {
+                    const point = [];
+                    for (let j = 0; j < 6; j++) {
+                        let val = base[j] + Math.sin(i * 0.3 + j * 1.2) * variance + (Math.random() - 0.5) * 4;
+                        point.push(Math.min(maxVal, Math.max(minVal, val)));
+                    }
+                    data.push(point);
+                }
+                return data;
+            }
+
+            const tempData = generateTrend(baseTemp, 8, 30, 80);
+            const angleData = generateTrend(baseAngle, 40, 0, 360);
+
+            function drawChart(canvas, data, yLabel, minVal, maxVal) {
+                const rect = canvas.parentElement.getBoundingClientRect();
+                const width = rect.width - 4;
+                const height = 130;
+                canvas.width = width * 2;
+                canvas.height = height * 2;
+                canvas.style.width = width + 'px';
+                canvas.style.height = height + 'px';
+                const ctx = canvas.getContext('2d');
+                ctx.scale(2, 2);
+
+                const pad = { top: 8, bottom: 18, left: 28, right: 8 };
+                const chartW = width - pad.left - pad.right;
+                const chartH = height - pad.top - pad.bottom;
+
+                ctx.clearRect(0, 0, width, height);
+
+                ctx.strokeStyle = '#E8EDF2';
+                ctx.lineWidth = 0.5;
+                for (let i = 0; i <= 4; i++) {
+                    const y = pad.top + (chartH / 4) * i;
+                    ctx.beginPath();
+                    ctx.moveTo(pad.left, y);
+                    ctx.lineTo(width - pad.right, y);
+                    ctx.stroke();
+                }
+
+                colors.forEach((color, idx) => {
+                    ctx.beginPath();
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 1.6;
+                    ctx.lineJoin = 'round';
+                    for (let i = 0; i < points; i++) {
+                        const x = pad.left + (i / (points - 1)) * chartW;
+                        const y = pad.top + chartH - ((data[i][idx] - minVal) / (maxVal - minVal)) * chartH;
+                        if (i === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    }
+                    ctx.stroke();
+                });
+
+                ctx.font = '8px sans-serif';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'top';
+                const legendX = pad.left + 2,
+                    legendY = pad.top + 1,
+                    gap = 24;
+                colors.forEach((color, idx) => {
+                    ctx.fillStyle = color;
+                    ctx.fillRect(legendX + idx * gap, legendY, 7, 3);
+                    ctx.fillStyle = '#64748B';
+                    ctx.fillText(labels[idx], legendX + idx * gap + 9, legendY - 1);
+                });
+
+                ctx.fillStyle = '#94A3B8';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                ctx.fillText(minVal + '', pad.left - 5, pad.top + chartH - 6);
+                ctx.fillText(maxVal + '', pad.left - 5, pad.top - 2);
+                ctx.fillText('0s', pad.left, pad.top + chartH + 2);
+                ctx.fillText('20s', width - pad.right - 10, pad.top + chartH + 2);
+                ctx.save();
+                ctx.translate(10, pad.top + chartH / 2);
+                ctx.rotate(-Math.PI / 2);
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#94A3B8';
+                ctx.font = '8px sans-serif';
+                ctx.fillText(yLabel, 0, 0);
+                ctx.restore();
+            }
+
+            drawChart(tempCanvas, tempData, '温度 °C', 30, 80);
+            drawChart(angleCanvas, angleData, '角度 °', 0, 360);
+        }
+
+        // ===== 渲染看板 =====
+        function renderDevices() {
+            const container = document.getElementById('device-list');
+            let html = '';
+            carData.forEach((car, idx) => {
+                const onlineCount = car.arms.filter(a => a.status === 'online').length;
+                html += `<div class="car-group">
+                    <div class="car-header">
+                        <span>${car.carName}</span>
+                        <span class="summary">${onlineCount}/${car.arms.length} 在线</span>
+                    </div>
+                    <div class="car-content">
+                        <div class="charts-row">
+                            <div class="chart-box">
+                                <div class="chart-title">📊 关节温度趋势</div>
+                                <div class="chart-container"><canvas id="carTempChart_${idx}"></canvas></div>
+                            </div>
+                            <div class="chart-box">
+                                <div class="chart-title">📊 关节角度趋势</div>
+                                <div class="chart-container"><canvas id="carAngleChart_${idx}"></canvas></div>
+                            </div>
+                        </div>
+                        <div class="arms-grid">`;
+                car.arms.forEach(arm => {
+                    const statusClass = arm.status;
+                    const statusText = arm.status === 'online' ? '● 在线' : arm.status === 'warning' ? '⚠ 告警' : '✕ 离线';
+                    html += `<div class="arm-card" onclick="showArmDetail('${car.carName}','${arm.id}')">
+                        <div class="top-row">
+                            <span class="name"><iconify-icon icon="mdi:robot" class="text-[#4F6CF7]"></iconify-icon> ${arm.id}</span>
+                            <span class="status-badge ${statusClass}">${statusText}</span>
+                        </div>
+                        <div class="joint-grid">`;
+                    arm.joints.forEach((j, jIdx) => {
+                        const tempClass = j.temp > 70 ? 'temp-high' : (j.temp > 55 ? 'temp-warn' : '');
+                        html += `<div class="joint-item">
+                            <span class="label">J${jIdx+1}</span>
+                            <span class="value">${j.angle}°</span>
+                            <span class="value ${tempClass}">${j.temp}°C</span>
+                        </div>`;
+                    });
+                    html += `</div>
+                        <div class="end-pos">
+                            <span>末端 X: ${arm.endPos.x} mm</span>
+                            <span>Y: ${arm.endPos.y} mm</span>
+                            <span>Z: ${arm.endPos.z} mm</span>
+                            <span>抓夹: <span class="gripper ${arm.gripper === '张开' ? 'open' : arm.gripper === '闭合' ? 'closed' : 'half'}">${arm.gripper}</span></span>
+                        </div>
+                    </div>`;
+                });
+                html += `</div></div></div>`;
+            });
+            container.innerHTML = html;
+            updateMetrics();
+            carData.forEach((car, idx) => {
+                drawCarCharts(idx);
+            });
+        }
+
+        // ===== 告警相关 =====
+        function renderAlarms() {
+            const tbody = document.getElementById('alarm-table-body');
+            const filter = document.getElementById('alarm-device-filter');
+            const all = getAllArms();
+            const deviceNames = all.map(item => `${item.carName}-${item.arm.id}`);
+            filter.innerHTML = '<option value="all">全部设备</option>' + deviceNames.map(d => `<option value="${d}">${d}</option>`).join('');
+
+            tbody.innerHTML = alarms.map(a => `
+                <tr class="hover:bg-slate-50 cursor-pointer transition-colors" onclick="openDrawer('${a.id}')">
+                    <td class="px-6 py-4 text-sm font-mono text-slate-500">${a.id}</td>
+                    <td class="px-6 py-4"><span class="px-2 py-1 rounded text-[10px] font-bold uppercase ${a.level === '严重' ? 'bg-red-100 text-red-600' : (a.level === '警告' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600')}">${a.level}</span></td>
+                    <td class="px-6 py-4 text-sm text-slate-700 font-medium">${a.device}</td>
+                    <td class="px-6 py-4 text-sm text-slate-600">${a.content}</td>
+                    <td class="px-6 py-4 text-sm text-slate-500 font-mono">${a.time}</td>
+                    <td class="px-6 py-4"><span class="px-2 py-1 rounded-full text-[10px] font-medium ${a.confirmed ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}">${a.confirmed ? '已确认' : '未确认'}</span></td>
+                    <td class="px-6 py-4"><span class="px-2 py-1 rounded-full text-[10px] font-medium ${a.status === '已解决' ? 'bg-green-100 text-green-700' : (a.status === '处理中' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700')}">${a.status}</span></td>
+                </tr>
+            `).join('');
+            updateMetrics();
+        }
+
+        function openDrawer(id) {
+            const a = alarms.find(x => x.id === id);
+            if (!a) return;
+            currentAlarm = a;
+            document.getElementById('drawer-title').textContent = '告警详情';
+            document.getElementById('drawer-level').textContent = a.level;
+            document.getElementById('drawer-level').className = 'font-bold ' + (a.level === '严重' ? 'text-red-600' : a.level === '警告' ? 'text-orange-500' : 'text-blue-600');
+            document.getElementById('drawer-device').textContent = a.device;
+            document.getElementById('drawer-time').textContent = a.time;
+            document.getElementById('drawer-content').textContent = a.content;
+            document.getElementById('drawerOverlay').classList.add('open');
+            document.getElementById('alarmDrawer').classList.add('open');
+            document.getElementById('aiAssistantInput').value = `${a.device} ${a.content}`;
+        }
+
+        function toggleDrawer(show) {
+            if (!show) {
+                document.getElementById('drawerOverlay').classList.remove('open');
+                document.getElementById('alarmDrawer').classList.remove('open');
+            }
+        }
+
+        function confirmAlarm() {
+            if (currentAlarm) {
+                currentAlarm.confirmed = true;
+                renderAlarms();
+                toggleDrawer(false);
+            }
+        }
+
+        function createOrderFromDrawer() {
+            if (currentAlarm) {
+                document.getElementById('order-title-input').value = `${currentAlarm.device} ${currentAlarm.content}`;
+                document.getElementById('order-device-select').value = currentAlarm.device;
+                document.getElementById('order-priority-select').value = currentAlarm.level === '严重' ? '高' : '中';
+                document.getElementById('order-desc-input').value = `告警: ${currentAlarm.content}，需尽快处理。`;
+                toggleDrawer(false);
+                toggleModal('newOrderModal', true);
+            }
+        }
+
+        function batchConfirm() {
+            const unconfirmed = alarms.filter(a => !a.confirmed);
+            if (unconfirmed.length === 0) { alert('所有告警已确认'); return; }
+            unconfirmed.forEach(a => a.confirmed = true);
+            renderAlarms();
+            alert('已批量确认 ' + unconfirmed.length + ' 条告警');
+        }
+
+        // ===== 工单 =====
+        function renderOrders(filter) {
+            const list = filter === 'all' ? orders : orders.filter(o => {
+                if (filter === 'pending') return o.status === '待处理';
+                if (filter === 'processing') return o.status === '处理中';
+                if (filter === 'done') return o.status === '已完成';
+                return true;
+            });
+            const grid = document.getElementById('order-grid');
+            if (list.length === 0) {
+                grid.innerHTML = '<div class="col-span-3 text-center text-slate-400 py-8">暂无工单</div>';
+                return;
+            }
+            grid.innerHTML = list.map(o => `
+                <div class="order-card">
+                    <div class="top">
+                        <span class="title">${o.title}</span>
+                        <span class="priority ${o.priority === '高' ? 'high' : o.priority === '中' ? 'medium' : 'low'}">${o.priority}</span>
+                    </div>
+                    <div class="meta">
+                        <span><iconify-icon icon="lucide:box"></iconify-icon> ${o.device}</span>
+                        <span><iconify-icon icon="lucide:user"></iconify-icon> ${o.user}</span>
+                        <span><iconify-icon icon="lucide:clock"></iconify-icon> ${o.time}</span>
+                    </div>
+                    <div class="status">
+                        <span class="${o.status === '已完成' ? 'text-green-600' : o.status === '处理中' ? 'text-blue-600' : 'text-slate-400'}">
+                            ${o.status === '已完成' ? '✅ 已完成' : o.status === '处理中' ? '⏳ 处理中' : '⏸ 待处理'}
+                        </span>
+                        <span class="text-[#4F6CF7] text-xs font-medium cursor-pointer" onclick="alert('查看详情: ${o.id}')">查看详情 →</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function filterOrders(filter) {
+            currentOrderFilter = filter;
+            document.querySelectorAll('#page-orders .border-b button').forEach(b => b.classList.remove('text-[#4F6CF7]', 'border-b-2', 'border-[#4F6CF7]'));
+            const btns = document.querySelectorAll('#page-orders .border-b button');
+            const map = { 'all': 0, 'pending': 1, 'processing': 2, 'done': 3 };
+            btns[map[filter]].classList.add('text-[#4F6CF7]', 'border-b-2', 'border-[#4F6CF7]');
+            renderOrders(filter);
+        }
+
+        function submitOrder() {
+            const title = document.getElementById('order-title-input').value.trim() || '未命名工单';
+            const device = document.getElementById('order-device-select').value;
+            const priority = document.getElementById('order-priority-select').value;
+            const desc = document.getElementById('order-desc-input').value.trim() || '无描述';
+            orders.unshift({
+                id: 'WO-' + String(orders.length + 1).padStart(3, '0'),
+                title: title,
+                device: device,
+                priority: priority,
+                status: '待处理',
+                time: formatTime(new Date()),
+                user: '当前用户'
+            });
+            renderOrders(currentOrderFilter);
+            toggleModal('newOrderModal', false);
+            alert('工单创建成功！');
+        }
+
+        // ===== 设备管理（卡片样式） =====
+        function renderDeviceMgmt() {
+            const container = document.getElementById('device-mgmt-list');
+            const all = getAllArms();
+            if (all.length === 0) {
+                container.innerHTML = '<div class="text-center text-slate-400 py-8">暂无设备</div>';
+                return;
+            }
+            let html = '<div class="device-grid">';
+            all.forEach(item => {
+                const arm = item.arm;
+                const statusText = arm.status === 'online' ? '在线' : arm.status === 'warning' ? '告警' : '离线';
+                const statusClass = arm.status;
+                html += `
+                    <div class="device-card">
+                        <div class="device-header">
+                            <span class="name">${item.carName} - ${arm.id}</span>
+                            <span class="status-badge ${statusClass}">${statusText}</span>
+                        </div>
+                        <div class="device-detail">
+                            <span class="label">型号</span><span class="value">${arm.model || '-'}</span>
+                            <span class="label">序列号</span><span class="value">${arm.serialNumber || '-'}</span>
+                            <span class="label">运行时长</span><span class="value">${arm.runtime || '-'}</span>
+                            <span class="label">累计采摘</span><span class="value">${arm.harvestCount || 0}</span>
+                            <span class="label">上次维护</span><span class="value">${arm.lastMaintenance || '-'}</span>
+                            <span class="label">IP地址</span><span class="value">${arm.ip || '-'}</span>
+                        </div>
+                        <div class="device-actions">
+                            <button class="edit" onclick="editDevice('${item.carName}','${arm.id}')">编辑</button>
+                            <button class="delete" onclick="deleteDevice('${item.carName}','${arm.id}')">删除</button>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        // ===== 打开添加设备模态框 =====
+        function openAddDeviceModal() {
+            editingDevice = null;
+            document.getElementById('deviceModalTitle').textContent = '添加新设备';
+            document.getElementById('dev-car').value = '1号采摘车';
+            document.getElementById('dev-name').value = '';
+            document.getElementById('dev-model').value = '';
+            document.getElementById('dev-sn').value = '';
+            document.getElementById('dev-runtime').value = '';
+            document.getElementById('dev-harvest').value = '';
+            document.getElementById('dev-maintenance').value = '';
+            document.getElementById('dev-ip').value = '';
+            document.getElementById('deviceModal').classList.add('open');
+        }
+
+        // ===== 编辑设备 =====
+        function editDevice(carName, armId) {
+            const arm = findArm(carName, armId);
+            if (!arm) return;
+            editingDevice = { carName, armId };
+            document.getElementById('deviceModalTitle').textContent = '编辑设备';
+            document.getElementById('dev-car').value = carName;
+            document.getElementById('dev-name').value = arm.id;
+            document.getElementById('dev-model').value = arm.model || '';
+            document.getElementById('dev-sn').value = arm.serialNumber || '';
+            document.getElementById('dev-runtime').value = arm.runtime || '';
+            document.getElementById('dev-harvest').value = arm.harvestCount || '';
+            document.getElementById('dev-maintenance').value = arm.lastMaintenance || '';
+            document.getElementById('dev-ip').value = arm.ip || '';
+            document.getElementById('deviceModal').classList.add('open');
+        }
+
+        // ===== 关闭设备模态框 =====
+        function closeDeviceModal() {
+            document.getElementById('deviceModal').classList.remove('open');
+            editingDevice = null;
+        }
+
+        // ===== 保存设备（添加或编辑） =====
+        function saveDevice() {
+            const carName = document.getElementById('dev-car').value;
+            const armId = document.getElementById('dev-name').value.trim();
+            if (!armId) {
+                alert('请输入机械臂名称');
+                return;
+            }
+            const model = document.getElementById('dev-model').value.trim() || '未知型号';
+            const sn = document.getElementById('dev-sn').value.trim() || '无';
+            const runtime = document.getElementById('dev-runtime').value.trim() || '0h';
+            const harvest = parseInt(document.getElementById('dev-harvest').value.trim()) || 0;
+            const maintenance = document.getElementById('dev-maintenance').value || '';
+            const ip = document.getElementById('dev-ip').value.trim() || '未分配';
+
+            if (editingDevice) {
+                // 编辑模式
+                const car = carData.find(c => c.carName === editingDevice.carName);
+                if (!car) { alert('小车不存在'); return; }
+                const arm = car.arms.find(a => a.id === editingDevice.armId);
+                if (!arm) { alert('臂不存在'); return; }
+                // 如果更改了名称，检查是否与其他臂冲突（排除自身）
+                if (armId !== editingDevice.armId) {
+                    if (car.arms.some(a => a.id === armId)) {
+                        alert('该臂名称已存在，请更换');
+                        return;
+                    }
+                }
+                arm.id = armId;
+                arm.model = model;
+                arm.serialNumber = sn;
+                arm.runtime = runtime;
+                arm.harvestCount = harvest;
+                arm.lastMaintenance = maintenance;
+                arm.ip = ip;
+                // 如果更换了小车，需要移动
+                if (carName !== editingDevice.carName) {
+                    const newCar = carData.find(c => c.carName === carName);
+                    if (!newCar) { alert('目标小车不存在'); return; }
+                    // 从原小车移除
+                    const idx = car.arms.indexOf(arm);
+                    if (idx > -1) car.arms.splice(idx, 1);
+                    // 添加到新小车
+                    newCar.arms.push(arm);
+                }
+            } else {
+                // 添加模式
+                const car = carData.find(c => c.carName === carName);
+                if (!car) { alert('小车不存在'); return; }
+                if (car.arms.some(a => a.id === armId)) {
+                    alert('该臂名称已存在，请更换');
+                    return;
+                }
+                const newArm = randomArm(armId);
+                newArm.model = model;
+                newArm.serialNumber = sn;
+                newArm.runtime = runtime;
+                newArm.harvestCount = harvest;
+                newArm.lastMaintenance = maintenance;
+                newArm.ip = ip;
+                car.arms.push(newArm);
+            }
+
+            // 关闭模态框并刷新
+            closeDeviceModal();
+            renderDevices();
+            renderDeviceMgmt();
+            // 更新下拉列表
+            populateHistorySelect();
+            populateOrderDeviceSelect();
+            alert('设备保存成功！');
+        }
+
+        // ===== 删除设备 =====
+        function deleteDevice(carName, armId) {
+            if (!confirm(`确定删除 ${carName}-${armId} 吗？`)) return;
+            const car = carData.find(c => c.carName === carName);
+            if (!car) return;
+            const idx = car.arms.findIndex(a => a.id === armId);
+            if (idx > -1) {
+                car.arms.splice(idx, 1);
+                renderDevices();
+                renderDeviceMgmt();
+                populateHistorySelect();
+                populateOrderDeviceSelect();
+                alert('设备已删除');
+            }
+        }
+
+        // ===== 历史数据 =====
+        function renderHistoryTable() {
+            const tbody = document.getElementById('history-table-body');
+            let html = '';
+            for (let i = 0; i < 12; i++) {
+                const h = String(10 + Math.floor(i / 2)).padStart(2, '0');
+                const m = String((i % 2) * 30).padStart(2, '0');
+                const time = `10:${h}:${m}`;
+                const joints = [];
+                for (let j = 0; j < 6; j++) {
+                    joints.push({ angle: (Math.random() * 360).toFixed(1), temp: (35 + Math.random() * 30).toFixed(1) });
+                }
+                const pos = {
+                    x: (100 + Math.random() * 300).toFixed(1),
+                    y: (100 + Math.random() * 300).toFixed(1),
+                    z: (100 + Math.random() * 300).toFixed(1)
+                };
+                html += `<tr><td>${time}</td>`;
+                joints.forEach(j => { html += `<td>${j.angle}</td><td>${j.temp}</td>`; });
+                html += `<td>${pos.x}</td><td>${pos.y}</td><td>${pos.z}</td></tr>`;
+            }
+            tbody.innerHTML = html;
+            // 绘制历史图表
+            const canvas = document.getElementById('historyChart');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const width = rect.width - 4,
+                height = 300;
+            canvas.width = width * 2;
+            canvas.height = height * 2;
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
+            ctx.scale(2, 2);
+            const pad = { top: 20, bottom: 30, left: 40, right: 20 };
+            const chartW = width - pad.left - pad.right;
+            const chartH = height - pad.top - pad.bottom;
+            ctx.clearRect(0, 0, width, height);
+            const colors = ['#4F6CF7', '#22C55E', '#F59E0B', '#EF4444', '#A855F7', '#06B6D4'];
+            ctx.strokeStyle = '#E8EDF2';
+            ctx.lineWidth = 0.5;
+            for (let i = 0; i <= 4; i++) {
+                const y = pad.top + (chartH / 4) * i;
+                ctx.beginPath();
+                ctx.moveTo(pad.left, y);
+                ctx.lineTo(width - pad.right, y);
+                ctx.stroke();
+            }
+            const points = 30;
+            const step = chartW / (points - 1);
+            colors.forEach((color, idx) => {
+                ctx.beginPath();
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1.5;
+                for (let i = 0; i < points; i++) {
+                    const x = pad.left + i * step;
+                    const val = 120 + Math.sin(i * 0.3 + idx) * 50 + Math.cos(i * 0.2 + idx * 0.7) * 30 + Math.random() * 10;
+                    const y = pad.top + chartH - (val / 300) * chartH;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            });
+            ctx.fillStyle = '#94A3B8';
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('0', pad.left, height - 5);
+            ctx.fillText('30', width - pad.right, height - 5);
+        }
+
+        function queryHistory() {
+            renderHistoryTable();
+            alert('历史数据已刷新');
+        }
+
+        function setHistoryType(type) {
+            document.querySelectorAll('#page-history .flex.bg-slate-100 button').forEach(b => b.classList.remove('bg-white', 'shadow-sm', 'text-[#4F6CF7]'));
+            const btns = document.querySelectorAll('#page-history .flex.bg-slate-100 button');
+            const map = { 'angle': 0, 'temp': 1, 'pos': 2 };
+            btns[map[type]].classList.add('bg-white', 'shadow-sm', 'text-[#4F6CF7]');
+        }
+
+        // ===== 页面切换 =====
+        function switchPage(pageId, element) {
+            document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'));
+            document.getElementById('page-' + pageId).classList.add('active');
+            document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('sidebar-item-active'));
+            if (element) element.classList.add('sidebar-item-active');
+            const titles = {
+                dashboard: '实时监控看板',
+                alarms: '异常告警中心',
+                history: '历史数据查询',
+                orders: '远程运维工单',
+                devices: '设备管理'
+            };
+            document.getElementById('page-title').innerText = titles[pageId];
+
+            if (pageId === 'dashboard') renderDevices();
+            if (pageId === 'alarms') renderAlarms();
+            if (pageId === 'orders') renderOrders(currentOrderFilter);
+            if (pageId === 'devices') renderDeviceMgmt();
+            if (pageId === 'history') {
+                renderHistoryTable();
+                populateHistorySelect();
+            }
+        }
+
+        function populateHistorySelect() {
+            const sel = document.getElementById('history-device-select');
+            const all = getAllArms();
+            sel.innerHTML = all.map(item => `<option value="${item.carName}-${item.arm.id}">${item.carName}-${item.arm.id}</option>`).join('');
+        }
+
+        function populateOrderDeviceSelect() {
+            const sel = document.getElementById('order-device-select');
+            const all = getAllArms();
+            sel.innerHTML = all.map(item => `<option value="${item.carName}-${item.arm.id}">${item.carName}-${item.arm.id}</option>`).join('');
+        }
+
+        // ===== 模态框通用 =====
+        function toggleModal(id, show) {
+            const modal = document.getElementById(id);
+            if (show) {
+                modal.classList.add('open');
+                if (id === 'newOrderModal') populateOrderDeviceSelect();
+            } else {
+                modal.classList.remove('open');
+            }
+        }
+
+        // ===== 智能助手 =====
+        let assistantMinimized = false;
+        let assistantMaximized = false;
+
+        function toggleAssistant(open) {
+            const win = document.getElementById('aiAssistantWindow');
+            if (open) {
+                if (assistantMinimized) {
+                    assistantMinimized = false;
+                    win.classList.remove('minimized');
+                    win.classList.remove('is-open');
+                    setTimeout(() => win.classList.add('is-open'), 50);
+                } else {
+                    win.classList.add('is-open');
+                }
+                document.getElementById('aiAssistantInput').focus();
+            } else {
+                win.classList.remove('is-open');
+            }
+        }
+
+        function minimizeAssistant() {
+            const win = document.getElementById('aiAssistantWindow');
+            if (assistantMaximized) maximizeAssistant();
+            assistantMinimized = true;
+            win.classList.add('minimized');
+            win.classList.remove('is-open');
+        }
+
+        function maximizeAssistant() {
+            const win = document.getElementById('aiAssistantWindow');
+            if (assistantMaximized) {
+                assistantMaximized = false;
+                win.classList.remove('maximized');
+                win.style.width = '420px';
+                win.style.height = '560px';
+                win.style.right = '24px';
+                win.style.bottom = '96px';
+                document.getElementById('assistantMaximize').innerHTML = '☐';
+            } else {
+                assistantMaximized = true;
+                win.classList.add('maximized');
+                document.getElementById('assistantMaximize').innerHTML = '⧉';
+            }
+        }
+
+        function closeAssistant() {
+            const win = document.getElementById('aiAssistantWindow');
+            assistantMinimized = false;
+            win.classList.remove('minimized');
+            win.classList.remove('is-open');
+            if (assistantMaximized) maximizeAssistant();
+        }
+
+        function initAssistantDrag() {
+            const win = document.getElementById('aiAssistantWindow');
+            const header = document.getElementById('assistantHeader');
+            let dragging = false,
+                offsetX = 0,
+                offsetY = 0;
+            header.addEventListener('mousedown', (e) => {
+                if (e.target.closest('button')) return;
+                if (assistantMaximized) return;
+                const rect = win.getBoundingClientRect();
+                dragging = true;
+                offsetX = e.clientX - rect.left;
+                offsetY = e.clientY - rect.top;
+                win.style.right = 'auto';
+                win.style.bottom = 'auto';
+                win.style.left = rect.left + 'px';
+                win.style.top = rect.top + 'px';
+                win.style.transition = 'none';
+                document.body.style.userSelect = 'none';
+            });
+            document.addEventListener('mousemove', (e) => {
+                if (!dragging) return;
+                let left = e.clientX - offsetX;
+                let top = e.clientY - offsetY;
+                const maxX = window.innerWidth - win.offsetWidth - 8;
+                const maxY = window.innerHeight - win.offsetHeight - 8;
+                left = Math.max(8, Math.min(left, maxX));
+                top = Math.max(8, Math.min(top, maxY));
+                win.style.left = left + 'px';
+                win.style.top = top + 'px';
+            });
+            document.addEventListener('mouseup', () => {
+                if (dragging) {
+                    dragging = false;
+                    win.style.transition = '';
+                    document.body.style.userSelect = '';
+                }
+            });
+        }
+
+        function getAssistantReply(text) {
+            if (text.includes('温度') || text.includes('超限')) return '建议检查散热风扇，清理滤网后观察。若持续高温，请降低负载或暂停设备。';
+            if (text.includes('震动') || text.includes('抖动')) return '建议检查关节机械连接是否松动，重新校准关节零点。';
+            if (text.includes('通信') || text.includes('延迟')) return '建议检查网线连接，重启通信模块。';
+            if (text.includes('急停')) return '建议检查急停按钮是否复位，确认电路正常后重新上电。';
+            return '已收到告警内容，正在检索历史案例库。建议查看告警详情中的错误代码。';
+        }
+
+        function sendAssistantMessage() {
+            const input = document.getElementById('aiAssistantInput');
+            const text = input.value.trim();
+            if (!text) return;
+            const container = document.getElementById('aiAssistantMessages');
+            const userDiv = document.createElement('div');
+            userDiv.className = 'ai-message-row user';
+            userDiv.innerHTML = `<div class="ai-message-bubble">${text}</div>`;
+            container.appendChild(userDiv);
+            input.value = '';
+            container.scrollTop = container.scrollHeight;
+
+            const thinkDiv = document.createElement('div');
+            thinkDiv.className = 'ai-message-row assistant';
+            thinkDiv.innerHTML = `<div class="ai-message-bubble"><span class="ai-thinking"><span class="ai-spinner"></span>AI 助手正在思考中...</span></div>`;
+            container.appendChild(thinkDiv);
+            container.scrollTop = container.scrollHeight;
+
+            setTimeout(() => {
+                const reply = getAssistantReply(text);
+                thinkDiv.querySelector('.ai-message-bubble').textContent = reply;
+                container.scrollTop = container.scrollHeight;
+            }, 500 + Math.random() * 400);
+        }
+
+        // ===== 时钟 =====
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('current-time').innerText = now.toISOString().replace('T', ' ').slice(0, 19);
+        }
+
+        // ===== 初始化 =====
+        document.addEventListener('DOMContentLoaded', function() {
+            // 助手事件
+            document.getElementById('aiAssistantFab').addEventListener('click', () => {
+                const win = document.getElementById('aiAssistantWindow');
+                if (win.classList.contains('is-open') && !assistantMinimized) {
+                    closeAssistant();
+                } else {
+                    toggleAssistant(true);
+                }
+            });
+            document.getElementById('assistantClose').addEventListener('click', closeAssistant);
+            document.getElementById('assistantMinimize').addEventListener('click', minimizeAssistant);
+            document.getElementById('assistantMaximize').addEventListener('click', maximizeAssistant);
+            document.getElementById('aiAssistantSend').addEventListener('click', sendAssistantMessage);
+            document.getElementById('aiAssistantInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendAssistantMessage(); });
+            initAssistantDrag();
+
+            // 渲染
+            renderDevices();
+            renderAlarms();
+            renderOrders('all');
+            renderDeviceMgmt();
+            renderHistoryTable();
+            populateHistorySelect();
+            populateOrderDeviceSelect();
+            switchPage('dashboard', document.querySelector('.sidebar-item-active'));
+
+            // 定时刷新
+            setInterval(() => {
+                if (document.getElementById('page-dashboard').classList.contains('active')) {
+                    carData.forEach(car => {
+                        car.arms.forEach(arm => {
+                            arm.joints.forEach(j => {
+                                j.angle = +(Math.random() * 360).toFixed(1);
+                                j.temp = +(35 + Math.random() * 30).toFixed(1);
+                            });
+                            arm.status = Math.random() > 0.15 ? 'online' : (Math.random() > 0.5 ? 'warning' : 'offline');
+                            arm.endPos.x = +(100 + Math.random() * 300).toFixed(1);
+                            arm.endPos.y = +(100 + Math.random() * 300).toFixed(1);
+                            arm.endPos.z = +(100 + Math.random() * 300).toFixed(1);
+                            arm.gripper = ['张开', '闭合', '半开'][Math.floor(Math.random() * 3)];
+                        });
+                    });
+                    renderDevices();
+                }
+            }, 8000);
+
+            updateClock();
+            setInterval(updateClock, 1000);
+
+            window.addEventListener('resize', () => {
+                if (document.getElementById('page-dashboard').classList.contains('active')) {
+                    carData.forEach((car, idx) => drawCarCharts(idx));
+                }
+            });
+        });
+
+        // 暴露全局函数
+        window.switchPage = switchPage;
+        window.toggleModal = toggleModal;
+        window.toggleDrawer = toggleDrawer;
+        window.openDrawer = openDrawer;
+        window.confirmAlarm = confirmAlarm;
+        window.createOrderFromDrawer = createOrderFromDrawer;
+        window.batchConfirm = batchConfirm;
+        window.filterOrders = filterOrders;
+        window.submitOrder = submitOrder;
+        window.editDevice = editDevice;
+        window.deleteDevice = deleteDevice;
+        window.openAddDeviceModal = openAddDeviceModal;
+        window.closeDeviceModal = closeDeviceModal;
+        window.saveDevice = saveDevice;
+        window.queryHistory = queryHistory;
+        window.setHistoryType = setHistoryType;
+        window.showArmDetail = function(carName, armId) {
+            const arm = findArm(carName, armId);
+            if (!arm) return;
+            let msg = `${carName} - ${arm.id}\n状态: ${arm.status}\n末端位姿: X=${arm.endPos.x} Y=${arm.endPos.y} Z=${arm.endPos.z}\n抓夹: ${arm.gripper}\n\n关节数据:\n`;
+            arm.joints.forEach((j, idx) => {
+                msg += `J${idx+1}: 角度 ${j.angle}°  温度 ${j.temp}°C\n`;
+            });
+            alert(msg);
+        };
+        console.log('🚀 设备管理已改为卡片样式，含型号、生命周期等信息');
+    </script>
+</body>
+</html>
